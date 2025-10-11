@@ -459,6 +459,20 @@
         block.classList.toggle('is-open', !expanded);
       });
     });
+
+    // Price card selection functionality
+    const priceCards = document.querySelectorAll('.price-card');
+    priceCards.forEach(card => {
+      card.addEventListener('click', () => {
+        // Remove selected class from all cards
+        priceCards.forEach(otherCard => {
+          otherCard.classList.remove('selected');
+        });
+        
+        // Add selected class to clicked card
+        card.classList.add('selected');
+      });
+    });
   });
 </script>
 </body>
