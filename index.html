@@ -414,6 +414,22 @@
       }
       btn.addEventListener('click', () => {
         const expanded = btn.getAttribute('aria-expanded') === 'true';
+        
+        // Close all other accordions first
+        ruleBlocks.forEach(otherBlock => {
+          if (otherBlock !== block) {
+            const otherBtn = otherBlock.querySelector('.rule-toggle');
+            const otherPanel = otherBlock.querySelector('.rule-panel');
+            if (otherBtn && otherPanel) {
+              otherBtn.setAttribute('aria-expanded', 'false');
+              otherPanel.setAttribute('hidden', '');
+              otherPanel.style.maxHeight = '0px';
+              otherBlock.classList.remove('is-open');
+            }
+          }
+        });
+        
+        // Toggle current accordion
         btn.setAttribute('aria-expanded', String(!expanded));
         if (expanded) {
           panel.setAttribute('hidden','');
