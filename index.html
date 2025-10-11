@@ -275,6 +275,8 @@
   const internalLinks = document.querySelectorAll('a[href^="#"]:not(.external)');
     const toggleBtn = document.querySelector('.nav-toggle');
     const nav = document.getElementById('site-nav');
+    
+
   const newsContainer = document.querySelector('.news');
   const newsToggle = newsContainer?.querySelector('.news-toggle');
   const newsPanel = newsContainer?.querySelector('.news-panel');
@@ -282,14 +284,25 @@
   const newsList = newsPanel?.querySelector('.news-list');
 
     function showSection(id) {
+      // Vérifier si la section existe avant de procéder
+      const targetSection = document.getElementById(id);
+      if (!targetSection) {
+        console.warn(`Section with id "${id}" not found`);
+        return false;
+      }
+      
+      // Cacher toutes les sections et afficher la section cible
       sections.forEach(sec => {
         sec.style.display = (sec.id === id) ? 'block' : 'none';
       });
-      // Marquage actif
+      
+      // Marquage actif des liens de navigation
       internalLinks.forEach(l => {
         const target = l.getAttribute('href').substring(1);
         l.classList.toggle('active', target === id);
       });
+      
+      return true;
     }
     showSection('accueil');
     internalLinks.forEach(link => {
@@ -297,13 +310,16 @@
         const hash = link.getAttribute('href');
         if (!hash || !hash.startsWith('#')) return;
         e.preventDefault();
+        
         const id = hash.substring(1);
-        if (id) {
-          showSection(id);
+        if (id && showSection(id)) {
+          // Seulement faire défiler vers le haut si la section a été trouvée et affichée
           window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        if (toggleBtn.getAttribute('aria-expanded') === 'true') {
-          toggleBtn.click();
+          
+          // Fermer le menu mobile s'il est ouvert
+          if (toggleBtn && toggleBtn.getAttribute('aria-expanded') === 'true') {
+            toggleBtn.click();
+          }
         }
       });
     });
