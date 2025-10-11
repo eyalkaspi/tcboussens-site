@@ -464,9 +464,9 @@
     const priceCards = document.querySelectorAll('.price-card');
     priceCards.forEach(card => {
       card.addEventListener('click', () => {
-        // Remove selected class from all cards
+        // Remove selected and highlight classes from all cards
         priceCards.forEach(otherCard => {
-          otherCard.classList.remove('selected');
+          otherCard.classList.remove('selected', 'highlight');
         });
         
         // Add selected class to clicked card
