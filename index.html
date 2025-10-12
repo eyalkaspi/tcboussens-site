@@ -476,6 +476,268 @@
         card.classList.add('selected');
       });
     });
+
+    // Hidden Tennis Game
+    const siteLogo = document.querySelector('.site-logo');
+    const gameOverlay = document.getElementById('tennis-game');
+    const gameCanvas = document.getElementById('game-canvas');
+    const ctx = gameCanvas.getContext('2d');
+    const startBtn = document.getElementById('game-start');
+    const pauseBtn = document.getElementById('game-pause');
+    const closeBtn = document.getElementById('game-close');
+    const playerScoreEl = document.getElementById('player-score');
+    const botScoreEl = document.getElementById('bot-score');
+    const gameStatusEl = document.getElementById('game-status');
+
+    let gameRunning = false;
+    let gamePaused = false;
+    let animationId = null;
+    let mouseY = 0;
+
+    // Game objects
+    const game = {
+      player: { x: 10, y: 150, width: 10, height: 80, score: 0 },
+      bot: { x: 780, y: 150, width: 10, height: 80, score: 0 },
+      ball: { x: 400, y: 200, width: 10, height: 10, vx: 5, vy: 3 }
+    };
+
+    // Logo click event to show game
+    siteLogo.addEventListener('click', (e) => {
+      e.preventDefault();
+      showGame();
+    });
+
+    // Game controls
+    startBtn.addEventListener('click', startGame);
+    pauseBtn.addEventListener('click', togglePause);
+    closeBtn.addEventListener('click', hideGame);
+
+    // ESC key to close game
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && gameOverlay.style.display !== 'none') {
+        hideGame();
+      }
+    });
+
+    // Mouse movement for player paddle
+    gameCanvas.addEventListener('mousemove', (e) => {
+      const rect = gameCanvas.getBoundingClientRect();
+      const scaleY = gameCanvas.height / rect.height;
+      mouseY = (e.clientY - rect.top) * scaleY;
+    });
+
+    function showGame() {
+      gameOverlay.style.display = 'flex';
+      resetGame();
+      gameStatusEl.textContent = "Cliquez sur 'Commencer' pour jouer!";
+    }
+
+    function hideGame() {
+      gameOverlay.style.display = 'none';
+      stopGame();
+    }
+
+    function startGame() {
+      if (!gameRunning) {
+        gameRunning = true;
+        gamePaused = false;
+        gameStatusEl.textContent = "Jeu en cours - Bonne chance contre le bot!";
+        gameLoop();
+      }
+    }
+
+    function togglePause() {
+      if (gameRunning) {
+        gamePaused = !gamePaused;
+        gameStatusEl.textContent = gamePaused ? "Jeu en pause" : "Jeu en cours - Bonne chance contre le bot!";
+        if (!gamePaused) {
+          gameLoop();
+        }
+      }
+    }
+
+    function stopGame() {
+      gameRunning = false;
+      gamePaused = false;
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+    }
+
+    function resetGame() {
+      game.player.y = 160;
+      game.bot.y = 160;
+      game.ball.x = 400;
+      game.ball.y = 200;
+      game.ball.vx = Math.random() > 0.5 ? 5 : -5;
+      game.ball.vy = (Math.random() - 0.5) * 6;
+      game.player.score = 0;
+      game.bot.score = 0;
+      updateScore();
+    }
+
+    function updateScore() {
+      playerScoreEl.textContent = game.player.score;
+      botScoreEl.textContent = game.bot.score;
+    }
+
+    function gameLoop() {
+      if (!gameRunning || gamePaused) return;
+
+      update();
+      draw();
+      
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function update() {
+      // Update player paddle (follow mouse with some smoothing)
+      const targetY = mouseY - game.player.height / 2;
+      game.player.y += (targetY - game.player.y) * 0.1;
+      
+      // Keep player paddle in bounds
+      game.player.y = Math.max(0, Math.min(gameCanvas.height - game.player.height, game.player.y));
+
+      // Update bot paddle (impossible AI - perfect tracking with slight delay for realism)
+      const ballCenterY = game.ball.y + game.ball.height / 2;
+      const paddleCenterY = game.bot.y + game.bot.height / 2;
+      const botSpeed = 8; // Very fast bot
+      
+      if (ballCenterY < paddleCenterY - 5) {
+        game.bot.y -= botSpeed;
+      } else if (ballCenterY > paddleCenterY + 5) {
+        game.bot.y += botSpeed;
+      }
+      
+      // Keep bot paddle in bounds
+      game.bot.y = Math.max(0, Math.min(gameCanvas.height - game.bot.height, game.bot.y));
+
+      // Update ball
+      game.ball.x += game.ball.vx;
+      game.ball.y += game.ball.vy;
+
+      // Ball collision with top and bottom
+      if (game.ball.y <= 0 || game.ball.y >= gameCanvas.height - game.ball.height) {
+        game.ball.vy = -game.ball.vy;
+      }
+
+      // Ball collision with player paddle
+      if (game.ball.x <= game.player.x + game.player.width &&
+          game.ball.x + game.ball.width >= game.player.x &&
+          game.ball.y <= game.player.y + game.player.height &&
+          game.ball.y + game.ball.height >= game.player.y) {
+        game.ball.vx = Math.abs(game.ball.vx); // Always bounce right
+        // Add some angle based on where it hit the paddle
+        const hitPoint = (game.ball.y + game.ball.height/2 - game.player.y) / game.player.height;
+        game.ball.vy = (hitPoint - 0.5) * 8;
+      }
+
+      // Ball collision with bot paddle
+      if (game.ball.x + game.ball.width >= game.bot.x &&
+          game.ball.x <= game.bot.x + game.bot.width &&
+          game.ball.y <= game.bot.y + game.bot.height &&
+          game.ball.y + game.ball.height >= game.bot.y) {
+        game.ball.vx = -Math.abs(game.ball.vx); // Always bounce left
+        // Add some angle based on where it hit the paddle
+        const hitPoint = (game.ball.y + game.ball.height/2 - game.bot.y) / game.bot.height;
+        game.ball.vy = (hitPoint - 0.5) * 8;
+      }
+
+      // Scoring
+      if (game.ball.x < 0) {
+        game.bot.score++;
+        updateScore();
+        resetBall();
+        if (game.bot.score >= 10) {
+          endGame('Le bot a gagné! Comme prévu, il est imbattable! 🤖');
+        }
+      } else if (game.ball.x > gameCanvas.width) {
+        game.player.score++;
+        updateScore();
+        resetBall();
+        if (game.player.score >= 10) {
+          endGame('Impossible! Vous avez battu le bot! 🏆');
+        }
+      }
+    }
+
+    function resetBall() {
+      game.ball.x = gameCanvas.width / 2;
+      game.ball.y = gameCanvas.height / 2;
+      game.ball.vx = Math.random() > 0.5 ? 5 : -5;
+      game.ball.vy = (Math.random() - 0.5) * 6;
+    }
+
+    function endGame(message) {
+      stopGame();
+      gameStatusEl.textContent = message + ' Cliquez sur Commencer pour rejouer.';
+    }
+
+    function draw() {
+      // Clear canvas
+      ctx.fillStyle = '#0a5a0a';
+      ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      // Draw tennis court lines
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      
+      // Center line
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(gameCanvas.width / 2, 0);
+      ctx.lineTo(gameCanvas.width / 2, gameCanvas.height);
+      ctx.stroke();
+      
+      // Court boundaries
+      ctx.setLineDash([]);
+      ctx.strokeRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      // Draw paddles
+      ctx.fillStyle = '#ff6b35';
+      ctx.fillRect(game.player.x, game.player.y, game.player.width, game.player.height);
+      
+      ctx.fillStyle = '#3498db';
+      ctx.fillRect(game.bot.x, game.bot.y, game.bot.width, game.bot.height);
+
+      // Draw ball (tennis ball style)
+      ctx.fillStyle = '#f1c40f';
+      ctx.fillRect(game.ball.x, game.ball.y, game.ball.width, game.ball.height);
+      
+      // Add tennis ball lines
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(game.ball.x + game.ball.width/2, game.ball.y + game.ball.height/2, game.ball.width/2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   });
 </script>
+
+<!-- Hidden Tennis Game -->
+<div id="tennis-game" class="tennis-game-overlay" style="display: none;">
+  <div class="game-container">
+    <div class="game-header">
+      <h2>Tennis Club Boussens - Jeu Secret</h2>
+      <div class="game-controls">
+        <button id="game-start" class="game-btn">Commencer</button>
+        <button id="game-pause" class="game-btn">Pause</button>
+        <button id="game-close" class="game-btn">Fermer (ESC)</button>
+      </div>
+    </div>
+    <div class="game-info">
+      <div class="score">
+        <span id="player-score">0</span> - <span id="bot-score">0</span>
+      </div>
+      <div class="game-status" id="game-status">Cliquez sur "Commencer" pour jouer!</div>
+    </div>
+    <canvas id="game-canvas" width="800" height="400"></canvas>
+    <div class="game-instructions">
+      <p>🎾 Utilisez votre souris pour bouger votre raquette</p>
+      <p>⚠️ Attention: Le bot est imbattable!</p>
+    </div>
+  </div>
+</div>
+
 </body>
