@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tennis Club Boussens - Jeu Secret</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: var(--color-background);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Poppins', sans-serif;
+    }
+    
+    .game-page-container {
+      background: var(--color-surface);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      box-shadow: var(--shadow-lg);
+      max-width: 90vw;
+      width: 100%;
+      max-width: 900px;
+    }
+    
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    .game-header h1 {
+      margin: 0;
+      color: var(--color-primary);
+    }
+    
+    .back-link {
+      background: var(--color-surface-alt);
+      color: var(--color-text);
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      transition: var(--transition);
+    }
+    
+    .back-link:hover {
+      background: var(--color-primary);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page-container">
+    <div class="game-header">
+      <h1>Tennis Club Boussens - Jeu Secret 🎾</h1>
+      <a href="index.html" class="back-link">← Retour au site</a>
+    </div>
+    
+    <div class="game-container">
+      <div class="game-controls">
+        <button id="game-start" class="game-btn">Commencer</button>
+        <button id="game-pause" class="game-btn">Pause</button>
+        <button id="game-reset" class="game-btn">Reset</button>
+      </div>
+      
+      <div class="game-info">
+        <div class="score">
+          <span id="player-score">0</span> - <span id="bot-score">0</span>
+        </div>
+        <div class="game-status" id="game-status">Cliquez sur "Commencer" pour jouer!</div>
+      </div>
+      
+      <canvas id="game-canvas" width="800" height="400"></canvas>
+      
+      <div class="game-instructions">
+        <p>🎾 Utilisez votre souris pour bouger votre raquette</p>
+        <p>⚠️ Attention: Le bot est imbattable!</p>
+        <p>💡 <strong>Astuce:</strong> Ce jeu secret s'ouvre en cliquant 3 fois sur le logo du site principal!</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Game elements
+    const gameCanvas = document.getElementById('game-canvas');
+    const ctx = gameCanvas.getContext('2d');
+    const startBtn = document.getElementById('game-start');
+    const pauseBtn = document.getElementById('game-pause');
+    const resetBtn = document.getElementById('game-reset');
+    const playerScoreEl = document.getElementById('player-score');
+    const botScoreEl = document.getElementById('bot-score');
+    const gameStatusEl = document.getElementById('game-status');
+
+    let gameRunning = false;
+    let gamePaused = false;
+    let animationId = null;
+    let mouseY = 0;
+
+    // Game objects
+    const game = {
+      player: { x: 10, y: 150, width: 10, height: 80, score: 0 },
+      bot: { x: 780, y: 150, width: 10, height: 80, score: 0 },
+      ball: { x: 400, y: 200, width: 10, height: 10, vx: 5, vy: 3 }
+    };
+
+    // Game controls
+    startBtn.addEventListener('click', startGame);
+    pauseBtn.addEventListener('click', togglePause);
+    resetBtn.addEventListener('click', resetGame);
+
+    // ESC key to pause game
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (gameRunning && !gamePaused) {
+          togglePause();
+        }
+      }
+    });
+
+    // Mouse movement for player paddle
+    gameCanvas.addEventListener('mousemove', (e) => {
+      const rect = gameCanvas.getBoundingClientRect();
+      const scaleY = gameCanvas.height / rect.height;
+      mouseY = (e.clientY - rect.top) * scaleY;
+    });
+
+    function startGame() {
+      if (!gameRunning) {
+        gameRunning = true;
+        gamePaused = false;
+        gameStatusEl.textContent = "Jeu en cours - Bonne chance contre le bot!";
+        gameLoop();
+      }
+    }
+
+    function togglePause() {
+      if (gameRunning) {
+        gamePaused = !gamePaused;
+        gameStatusEl.textContent = gamePaused ? "Jeu en pause" : "Jeu en cours - Bonne chance contre le bot!";
+        if (!gamePaused) {
+          gameLoop();
+        }
+      }
+    }
+
+    function stopGame() {
+      gameRunning = false;
+      gamePaused = false;
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+    }
+
+    function resetGame() {
+      stopGame();
+      game.player.y = 160;
+      game.bot.y = 160;
+      game.ball.x = 400;
+      game.ball.y = 200;
+      game.ball.vx = 5;
+      game.ball.vy = 3;
+      game.player.score = 0;
+      game.bot.score = 0;
+      updateScore();
+      gameStatusEl.textContent = "Cliquez sur 'Commencer' pour jouer!";
+      draw();
+    }
+
+    function updateScore() {
+      playerScoreEl.textContent = game.player.score;
+      botScoreEl.textContent = game.bot.score;
+    }
+
+    function gameLoop() {
+      if (!gameRunning || gamePaused) return;
+
+      update();
+      draw();
+      
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function update() {
+      // Update player paddle (follow mouse with some smoothing)
+      const targetY = mouseY - game.player.height / 2;
+      const maxY = gameCanvas.height - game.player.height;
+      game.player.y = Math.max(0, Math.min(maxY, targetY));
+
+      // Update ball position
+      game.ball.x += game.ball.vx;
+      game.ball.y += game.ball.vy;
+
+      // Ball collision with top/bottom walls
+      if (game.ball.y <= 0 || game.ball.y >= gameCanvas.height - game.ball.height) {
+        game.ball.vy = -game.ball.vy;
+      }
+
+      // Ball collision with player paddle
+      if (game.ball.x <= game.player.x + game.player.width &&
+          game.ball.y + game.ball.height >= game.player.y &&
+          game.ball.y <= game.player.y + game.player.height &&
+          game.ball.vx < 0) {
+        game.ball.vx = -game.ball.vx;
+        // Add some angle based on where it hits the paddle
+        const paddleCenter = game.player.y + game.player.height / 2;
+        const hitPos = (game.ball.y - paddleCenter) / (game.player.height / 2);
+        game.ball.vy = hitPos * 4;
+      }
+
+      // Ball collision with bot paddle
+      if (game.ball.x + game.ball.width >= game.bot.x &&
+          game.ball.y + game.ball.height >= game.bot.y &&
+          game.ball.y <= game.bot.y + game.bot.height &&
+          game.ball.vx > 0) {
+        game.ball.vx = -game.ball.vx;
+        // Add some angle based on where it hits the paddle
+        const paddleCenter = game.bot.y + game.bot.height / 2;
+        const hitPos = (game.ball.y - paddleCenter) / (game.bot.height / 2);
+        game.ball.vy = hitPos * 4;
+      }
+
+      // Bot AI - simple following with some imperfection
+      const botCenter = game.bot.y + game.bot.height / 2;
+      const ballCenter = game.ball.y + game.ball.height / 2;
+      const botSpeed = 4;
+      
+      if (ballCenter > botCenter + 10) {
+        game.bot.y = Math.min(gameCanvas.height - game.bot.height, game.bot.y + botSpeed);
+      } else if (ballCenter < botCenter - 10) {
+        game.bot.y = Math.max(0, game.bot.y - botSpeed);
+      }
+
+      // Check for goals
+      if (game.ball.x <= -game.ball.width) {
+        // Bot scores
+        game.bot.score++;
+        updateScore();
+        if (game.bot.score >= 5) {
+          endGame("Le bot a gagné 5-" + game.player.score + "!");
+        } else {
+          resetBall();
+        }
+      } else if (game.ball.x >= gameCanvas.width) {
+        // Player scores
+        game.player.score++;
+        updateScore();
+        if (game.player.score >= 5) {
+          endGame("Incroyable! Vous avez gagné 5-" + game.bot.score + "!");
+        } else {
+          resetBall();
+        }
+      }
+    }
+
+    function resetBall() {
+      game.ball.x = gameCanvas.width / 2;
+      game.ball.y = gameCanvas.height / 2;
+      game.ball.vx = Math.random() > 0.5 ? 5 : -5;
+      game.ball.vy = (Math.random() - 0.5) * 6;
+    }
+
+    function endGame(message) {
+      stopGame();
+      gameStatusEl.textContent = message + ' Cliquez sur Commencer pour rejouer.';
+    }
+
+    function draw() {
+      // Clear canvas with tennis court green
+      ctx.fillStyle = '#0a5a0a';
+      ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      // Draw tennis court lines
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      
+      // Center line
+      ctx.beginPath();
+      ctx.moveTo(gameCanvas.width / 2, 0);
+      ctx.lineTo(gameCanvas.width / 2, gameCanvas.height);
+      ctx.stroke();
+      
+      // Top and bottom lines
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(gameCanvas.width, 0);
+      ctx.moveTo(0, gameCanvas.height);
+      ctx.lineTo(gameCanvas.width, gameCanvas.height);
+      ctx.stroke();
+
+      // Draw player paddle
+      ctx.fillStyle = '#e74c3c';
+      ctx.fillRect(game.player.x, game.player.y, game.player.width, game.player.height);
+
+      // Draw bot paddle
+      ctx.fillStyle = '#3498db';
+      ctx.fillRect(game.bot.x, game.bot.y, game.bot.width, game.bot.height);
+
+      // Draw ball (tennis ball style)
+      ctx.fillStyle = '#f1c40f';
+      ctx.fillRect(game.ball.x, game.ball.y, game.ball.width, game.ball.height);
+      
+      // Add tennis ball lines
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(game.ball.x + game.ball.width/2, game.ball.y + game.ball.height/2, game.ball.width/2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Initialize the game
+    resetGame();
+  });
+</script>
+
+</body>
+</html>
