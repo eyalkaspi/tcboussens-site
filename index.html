@@ -365,7 +365,7 @@
             const article = document.createElement('article');
             article.className = 'news-item';
             article.setAttribute('role','listitem');
-            const date = it.dateRaw && !isNaN(new Date(it.dateRaw)) ? fmt.format(new Date(it.dateRaw)) : it.dateRaw;
+            const date = it.dateRaw && !isNaN(parseDDMMYYYY(it.dateRaw)) ? fmt.format(parseDDMMYYYY(it.dateRaw)) : it.dateRaw;
             article.innerHTML = `
               <h4>${escapeHtml(it.title)}</h4>
               <p class="news-meta">${date ? '<time>'+escapeHtml(date)+'</time>' : ''}</p>
@@ -378,6 +378,13 @@
           if (newsStatus) newsStatus.textContent = 'Impossible de charger les actualités (' + err.message + ').';
         });
     }
+
+
+    function parseDDMMYYYY(dateStr) {
+      const [day, month, year] = dateStr.split(".").map(Number);
+      return new Date(year, month - 1, day); // month is 0-based
+    }
+
 
     // Utilitaires d'échappement & linkify
     function escapeHtml(str='') {
